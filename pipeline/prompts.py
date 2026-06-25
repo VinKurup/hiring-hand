@@ -18,3 +18,32 @@ def build_profile_user(job_descriptions):
         f"There are {len(job_descriptions)} job descriptions below for the same kind of role. "
         f"Extract the role profile.\n\n" + "\n\n".join(parts)
     )
+
+
+MATCH_SYSTEM = """You judge how well a candidate's resume and GitHub provide EVIDENCE for each must-have of a target role. You are not a recruiter scoring a stranger; you help the candidate see their real gaps.
+
+For each must-have, assign:
+- status: "strong" (clear, specific evidence with impact/scope), "weak" (mentioned but thin or unsupported), or "missing" (no evidence).
+- evidence: cite what in the resume/GitHub supports it, or state why it's missing.
+- claim_without_evidence: true if the resume claims the skill but GitHub and the bullets don't back it up.
+
+Then assign two scores 0-100:
+- visibility_score (Gate 1, coarse recruiter/ATS filter): would a skim catch the must-haves the candidate GENUINELY has? Penalize buried or absent-but-real strengths. Never reward inventing keywords.
+- evidence_score (Gate 2, hiring manager): depth of real evidence — impact, scope, level.
+
+Return ONLY JSON matching this schema:
+{"matches": [{"skill": str, "status": "strong|weak|missing", "evidence": str, "claim_without_evidence": bool}], "visibility_score": int, "evidence_score": int}"""
+
+
+def match_user(role_profile, resume_text, github_text):
+    must_haves = "\n".join(
+        f"- {m.skill} ({m.category}, in {m.frequency} postings)"
+        for m in role_profile.must_haves
+    )
+    return (
+        f"TARGET ROLE: {role_profile.title}\n\n"
+        f"MUST-HAVES:\n{must_haves}\n\n"
+        f"=== RESUME ===\n{resume_text}\n\n"
+        f"=== GITHUB ===\n{github_text}\n\n"
+        f"Judge each must-have and assign the two scores."
+    )
