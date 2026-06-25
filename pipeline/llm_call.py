@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Type, TypeVar
+from typing import Optional, Type, TypeVar
 
 from pydantic import BaseModel
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 
-def call_structured(system: str, user: str, schema: Type[T], model: str = None) -> T:
+def call_structured(system: str, user: str, schema: Type[T], model: Optional[str] = None) -> T:
     """
     Send system+user messages, expect JSON matching `schema`.
     Retries once with the parse error fed back, then raises ValueError.

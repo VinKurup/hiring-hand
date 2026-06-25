@@ -1,4 +1,3 @@
-import json
 import pytest
 
 
@@ -25,7 +24,3 @@ def fake_provider_factory(monkeypatch):
         monkeypatch.setattr(llm_call, "initialize_llm_provider", lambda model: provider)
         return provider
     return _factory
-
-
-def as_json(obj):
-    return json.dumps(obj)
