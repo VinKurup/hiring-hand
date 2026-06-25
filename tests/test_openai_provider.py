@@ -32,3 +32,12 @@ def test_initialize_routes_unmapped_model_to_openai(monkeypatch):
         provider = llm_utils.initialize_llm_provider("anthropic/claude-sonnet-4.6")
     from models import OpenAICompatibleProvider
     assert isinstance(provider, OpenAICompatibleProvider)
+
+
+def test_initialize_falls_back_to_ollama_without_openai_key(monkeypatch):
+    import llm_utils
+    monkeypatch.setattr(llm_utils, "PROVIDER", "openai")
+    monkeypatch.setattr(llm_utils, "OPENAI_API_KEY", "")
+    provider = llm_utils.initialize_llm_provider("anthropic/claude-sonnet-4.6")
+    from models import OllamaProvider
+    assert isinstance(provider, OllamaProvider)

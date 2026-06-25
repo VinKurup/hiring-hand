@@ -415,6 +415,10 @@ class OpenAICompatibleProvider:
             if "top_p" in options:
                 params["top_p"] = options["top_p"]
 
+        # Note: the Ollama-style "format" kwarg is intentionally not forwarded.
+        # Like GeminiProvider, this provider relies on downstream text-based JSON
+        # extraction (extract_json_from_response) plus Pydantic validation/retry
+        # rather than server-side structured output.
         completion = self.client.chat.completions.create(**params)
-        content = completion.choices[0].message.content
+        content = completion.choices[0].message.content or ""
         return {"message": {"role": "assistant", "content": content}}
