@@ -8,6 +8,7 @@ class ModelProvider(Enum):
 
     OLLAMA = "ollama"
     GEMINI = "gemini"
+    OPENAI = "openai"
 
 
 @runtime_checkable
@@ -389,3 +390,31 @@ class GeminiProvider:
                     f"Retrying in {sleep_time}s..."
                 )
                 time.sleep(sleep_time)
+
+
+class OpenAICompatibleProvider:
+    """Provider for any OpenAI-compatible endpoint (OpenAI, OpenRouter, etc.)."""
+
+    def __init__(self, api_key: str, base_url: str):
+        import openai
+
+        self.client = openai.OpenAI(api_key=api_key, base_url=base_url)
+
+    def chat(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        options: Dict[str, Any] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Send a chat request and normalize to the shared response shape."""
+        params: Dict[str, Any] = {"model": model, "messages": messages}
+        if options:
+            if "temperature" in options:
+                params["temperature"] = options["temperature"]
+            if "top_p" in options:
+                params["top_p"] = options["top_p"]
+
+        completion = self.client.chat.completions.create(**params)
+        content = completion.choices[0].message.content
+        return {"message": {"role": "assistant", "content": content}}
