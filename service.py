@@ -4,6 +4,8 @@ Stage functions and ingestion helpers are imported at module level so tests can
 monkeypatch them (service.build_profile, service.load_resume, etc.).
 """
 
+from typing import Optional
+
 from sqlmodel import Session, select
 
 from db_models import (
@@ -42,7 +44,7 @@ def ingest_resume(filename: str, pdf_path: str, session: Session) -> Resume:
     return row
 
 
-def run_evaluation(resume_id: int, session: Session, model: str = None) -> EvaluationRecord:
+def run_evaluation(resume_id: int, session: Session, model: Optional[str] = None) -> EvaluationRecord:
     """Run build_profile -> match -> recommend over the included jobs; persist."""
     resume = session.get(Resume, resume_id)
     if resume is None:

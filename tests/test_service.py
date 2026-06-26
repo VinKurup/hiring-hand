@@ -63,8 +63,16 @@ def test_run_evaluation_runs_stages_and_persists(monkeypatch):
         assert ev.id is not None
         rp = s.get(RoleProfileRecord, ev.role_profile_id)
         assert rp is not None
+        included = s.exec(select(Job).where(Job.included == True)).all()  # noqa: E712
+        assert rp.job_ids_csv == ",".join(str(j.id) for j in included)
         stored = s.exec(select(EvaluationRecord)).all()
         assert len(stored) == 1
+
+
+def test_run_evaluation_raises_for_missing_resume():
+    with _session() as s:
+        with pytest.raises(ValueError, match="No resume with id"):
+            service.run_evaluation(999, s, model="m")
 
 
 def test_run_evaluation_requires_included_jobs(monkeypatch):
