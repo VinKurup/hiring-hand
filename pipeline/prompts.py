@@ -47,3 +47,33 @@ def match_user(role_profile, resume_text, github_text):
         f"=== GITHUB ===\n{github_text}\n\n"
         f"Judge each must-have and assign the two scores."
     )
+
+
+
+RECOMMEND_SYSTEM = """You turn a candidate's evidence gaps into a concrete, ranked action plan to improve their real chances at the target role. Be specific and honest.
+
+Three buckets:
+- build: scoped project ideas that would DEMONSTRATE a missing/weak must-have. Give a project name, a suggested stack, and which gap it closes.
+- github: profile-level actions (pin a repo, write a README, show a language, contribute to an OSS project) that make real strengths visible or close a gap.
+- learn: specific skills/tools/certs to acquire, each tagged with score_impact "high|medium|low" by how much it would move the match.
+
+Hard rules:
+- Never recommend adding keywords the candidate can't back up. For a claim_without_evidence gap, recommend BUILDING or SHOWING evidence ("back this claim up"), not rewording.
+- Prioritize the highest-frequency missing/weak must-haves.
+
+Return ONLY JSON matching this schema:
+{"build": [{"project": str, "stack": [str], "closes_gap": str}], "github": [{"action": str, "closes_gap": str}], "learn": [{"skill": str, "score_impact": "high|medium|low"}]}"""
+
+
+def recommend_user(match_report):
+    lines = []
+    for m in match_report.matches:
+        flag = " [CLAIM WITHOUT EVIDENCE]" if m.claim_without_evidence else ""
+        lines.append(f"- {m.skill}: {m.status}{flag} — {m.evidence}")
+    gaps = "\n".join(lines)
+    return (
+        f"Match scores: visibility={match_report.visibility_score}, "
+        f"evidence={match_report.evidence_score}.\n\n"
+        f"Per must-have status:\n{gaps}\n\n"
+        f"Produce the ranked action plan. Focus on the weak and missing items."
+    )
