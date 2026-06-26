@@ -493,4 +493,6 @@ def main(github_url):
 
 
 if __name__ == "__main__":
-    main("https://github.com/PavitKaur05")
+    import sys
+    main(sys.argv[1] if len(sys.argv) > 1 else "https://github.com/octocat")
+
