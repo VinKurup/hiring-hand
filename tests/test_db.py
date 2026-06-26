@@ -37,3 +37,24 @@ def test_resume_and_evaluation_roundtrip():
     assert len(evals) == 1
     assert evals[0].visibility_score == 70
     assert evals[0].resume_id == rid
+
+
+def test_init_db_creates_tables(tmp_path, monkeypatch):
+    import db
+    from sqlmodel import create_engine, inspect
+    test_engine = create_engine(f"sqlite:///{tmp_path/'t.db'}",
+                                connect_args={"check_same_thread": False})
+    monkeypatch.setattr(db, "engine", test_engine)
+    db.init_db()
+    table_names = set(inspect(test_engine).get_table_names())
+    assert {"resume", "job", "githubsnapshot", "roleprofilerecord",
+            "evaluationrecord"} <= table_names
+
+
+def test_get_session_yields_session():
+    import db
+    from sqlmodel import Session
+    gen = db.get_session()
+    session = next(gen)
+    assert isinstance(session, Session)
+    gen.close()
