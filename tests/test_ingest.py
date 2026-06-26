@@ -1,7 +1,7 @@
 import ingest
 
 
-def test_github_to_text_no_profile_returns_header_only(monkeypatch):
+def test_github_to_text_no_profile_returns_header_only():
     class FakeBasics:
         profiles = []
 
@@ -12,7 +12,7 @@ def test_github_to_text_no_profile_returns_header_only(monkeypatch):
     assert "GITHUB DATA" in text  # upstream converter emits the header for {}
 
 
-def test_github_to_text_handles_none_resume(monkeypatch):
+def test_github_to_text_handles_none_resume():
     text = ingest.github_to_text(None)
     assert "GITHUB DATA" in text
 
