@@ -15,52 +15,14 @@ from pipeline.match import match
 from pipeline.recommend import recommend
 
 
-# ---- Stage 1 & 2 adapters (wired to real upstream code) ----
-# Tests monkeypatch these. Imports are function-local so `import run_pipeline`
-# and `--help` stay side-effect free.
-#
-# Stage 1 parses the PDF into a JSONResume object (upstream PDFHandler), which
-# stage 2 needs in structured form to find the GitHub profile URL. So the
-# parse step returns the JSONResume; run() converts it to text for the match
-# stage and hands the same object to the GitHub adapter.
-
-
-def _load_resume(pdf_path: str):
-    """Parse the resume PDF into a JSONResume object (upstream PDFHandler)."""
-    from pdf import PDFHandler
-
-    return PDFHandler().extract_json_from_pdf(pdf_path)
-
-
-def _load_resume_text(resume) -> str:
-    """Convert a JSONResume object to evidence text."""
-    from transform import convert_json_resume_to_text
-
-    return convert_json_resume_to_text(resume)
-
-
-def _load_github_text(resume) -> str:
-    """Find the GitHub profile in the resume, fetch + classify it, to text.
-
-    Mirrors score.py: pull profiles from resume.basics, locate the "Github"
-    network, fetch via fetch_and_display_github_info(url). When no GitHub
-    profile is present, fetch returns {} and the converter yields just the
-    header, matching upstream's missing-profile behavior.
-    """
-    from github import fetch_and_display_github_info
-    from transform import convert_github_data_to_text
-
-    profiles = []
-    if resume is not None and getattr(resume, "basics", None):
-        profiles = resume.basics.profiles or []
-    github_profile = next(
-        (p for p in profiles if p.network and p.network.lower() == "github"),
-        None,
-    )
-    github_data = (
-        fetch_and_display_github_info(github_profile.url) if github_profile else {}
-    )
-    return convert_github_data_to_text(github_data)
+# ---- Stage 1 & 2 adapters (shared with the API via ingest.py) ----
+# Re-exported under the old private names so callers and tests that monkeypatch
+# run_pipeline._load_resume / _load_resume_text / _load_github_text keep working.
+from ingest import (
+    load_resume as _load_resume,
+    resume_to_text as _load_resume_text,
+    github_to_text as _load_github_text,
+)
 
 
 # ---- caching helper ----
