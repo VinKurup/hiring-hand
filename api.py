@@ -10,8 +10,8 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from db import get_session, init_db
-from db_models import Job, Resume
-from service import ingest_resume
+from db_models import Job, Resume, EvaluationRecord, RoleProfileRecord
+from service import ingest_resume, run_evaluation
 
 UPLOAD_DIR = Path("uploads")
 
@@ -25,6 +25,11 @@ class JobUpdate(BaseModel):
     label: str | None = None
     description: str | None = None
     included: bool | None = None
+
+
+class EvaluateRequest(BaseModel):
+    resume_id: int
+    model: str | None = None
 
 
 @asynccontextmanager
@@ -123,3 +128,44 @@ def delete_job(job_id: int, session: Session = Depends(get_session)):
     session.delete(job)
     session.commit()
     return {"deleted": job_id}
+
+
+# ---- evaluations ----
+
+def _evaluation_dict(evaluation: EvaluationRecord, session: Session) -> dict:
+    profile_row = session.get(RoleProfileRecord, evaluation.role_profile_id)
+    return {
+        "id": evaluation.id,
+        "resume_id": evaluation.resume_id,
+        "visibility_score": evaluation.visibility_score,
+        "evidence_score": evaluation.evidence_score,
+        "role_profile": json.loads(profile_row.profile_json) if profile_row else None,
+        "match": json.loads(evaluation.match_json),
+        "recommendations": json.loads(evaluation.recommendations_json),
+        "created_at": evaluation.created_at.isoformat(),
+    }
+
+
+@app.post("/evaluations")
+def create_evaluation(payload: EvaluateRequest, session: Session = Depends(get_session)):
+    try:
+        evaluation = run_evaluation(payload.resume_id, session, model=payload.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return _evaluation_dict(evaluation, session)
+
+
+@app.get("/evaluations/{evaluation_id}")
+def get_evaluation(evaluation_id: int, session: Session = Depends(get_session)):
+    evaluation = session.get(EvaluationRecord, evaluation_id)
+    if evaluation is None:
+        raise HTTPException(status_code=404, detail="evaluation not found")
+    return _evaluation_dict(evaluation, session)
+
+
+@app.get("/evaluations")
+def list_evaluations(resume_id: int, session: Session = Depends(get_session)):
+    rows = session.exec(
+        select(EvaluationRecord).where(EvaluationRecord.resume_id == resume_id)
+    ).all()
+    return [_evaluation_dict(r, session) for r in rows]
