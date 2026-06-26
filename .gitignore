@@ -7,3 +7,5 @@ cache/
 .pytest_cache/
 /samples
 .DS_Store
+resume_booster.db
+uploads/
