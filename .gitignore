@@ -5,3 +5,5 @@ __pycache__/
 cache/
 .pipeline_cache/
 .pytest_cache/
+/samples
+.DS_Store
