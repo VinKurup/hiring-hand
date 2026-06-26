@@ -15,27 +15,56 @@ from pipeline.match import match
 from pipeline.recommend import recommend
 
 
-# ---- Stage 1 & 2 adapters (wired to real upstream code in Task 9) ----
-# Tests monkeypatch these; the placeholder bodies are replaced with real
-# upstream calls in Task 9 after confirming the entrypoint names in score.py.
+# ---- Stage 1 & 2 adapters (wired to real upstream code) ----
+# Tests monkeypatch these. Imports are function-local so `import run_pipeline`
+# and `--help` stay side-effect free.
+#
+# Stage 1 parses the PDF into a JSONResume object (upstream PDFHandler), which
+# stage 2 needs in structured form to find the GitHub profile URL. So the
+# parse step returns the JSONResume; run() converts it to text for the match
+# stage and hands the same object to the GitHub adapter.
 
-def _load_resume_text(pdf_path: str) -> str:
-    """Parse the resume PDF into JSON Resume, then to evidence text."""
-    from pdf import parse_resume_pdf  # entrypoint name confirmed in Task 9
+
+def _load_resume(pdf_path: str):
+    """Parse the resume PDF into a JSONResume object (upstream PDFHandler)."""
+    from pdf import PDFHandler
+
+    return PDFHandler().extract_json_from_pdf(pdf_path)
+
+
+def _load_resume_text(resume) -> str:
+    """Convert a JSONResume object to evidence text."""
     from transform import convert_json_resume_to_text
-    resume = parse_resume_pdf(pdf_path)
+
     return convert_json_resume_to_text(resume)
 
 
-def _load_github_text(resume_text: str) -> str:
-    """Fetch + classify GitHub from the username found in the resume."""
-    from github import enrich_github  # entrypoint name confirmed in Task 9
+def _load_github_text(resume) -> str:
+    """Find the GitHub profile in the resume, fetch + classify it, to text.
+
+    Mirrors score.py: pull profiles from resume.basics, locate the "Github"
+    network, fetch via fetch_and_display_github_info(url). When no GitHub
+    profile is present, fetch returns {} and the converter yields just the
+    header, matching upstream's missing-profile behavior.
+    """
+    from github import fetch_and_display_github_info
     from transform import convert_github_data_to_text
-    github_data = enrich_github(resume_text)
+
+    profiles = []
+    if resume is not None and getattr(resume, "basics", None):
+        profiles = resume.basics.profiles or []
+    github_profile = next(
+        (p for p in profiles if p.network and p.network.lower() == "github"),
+        None,
+    )
+    github_data = (
+        fetch_and_display_github_info(github_profile.url) if github_profile else {}
+    )
     return convert_github_data_to_text(github_data)
 
 
 # ---- caching helper ----
+
 
 def _cached(cache_dir: Path, name: str, use_cache: bool, schema, produce):
     """Return schema instance from cache if present, else produce + persist."""
@@ -57,16 +86,32 @@ def run(
     cache = Path(cache_dir)
     cache.mkdir(parents=True, exist_ok=True)
 
-    resume_text = _load_resume_text(pdf_path)
-    github_text = _load_github_text(resume_text)
+    resume = _load_resume(pdf_path)
+    resume_text = _load_resume_text(resume)
+    github_text = _load_github_text(resume)
     job_descriptions = [Path(p).read_text() for p in jd_paths]
 
-    profile = _cached(cache, "role_profile", use_cache, RoleProfile,
-                      lambda: build_profile(job_descriptions, model=model))
-    report = _cached(cache, "match", use_cache, MatchReport,
-                     lambda: match(profile, resume_text, github_text, model=model))
-    recs = _cached(cache, "recommendations", use_cache, Recommendations,
-                   lambda: recommend(report, model=model))
+    profile = _cached(
+        cache,
+        "role_profile",
+        use_cache,
+        RoleProfile,
+        lambda: build_profile(job_descriptions, model=model),
+    )
+    report = _cached(
+        cache,
+        "match",
+        use_cache,
+        MatchReport,
+        lambda: match(profile, resume_text, github_text, model=model),
+    )
+    recs = _cached(
+        cache,
+        "recommendations",
+        use_cache,
+        Recommendations,
+        lambda: recommend(report, model=model),
+    )
 
     return {
         "role_profile": profile.model_dump(),

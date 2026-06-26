@@ -13,7 +13,10 @@ Return ONLY JSON matching this schema:
 
 
 def build_profile_user(job_descriptions):
-    parts = [f"--- JOB DESCRIPTION {i + 1} ---\n{jd}" for i, jd in enumerate(job_descriptions)]
+    parts = [
+        f"--- JOB DESCRIPTION {i + 1} ---\n{jd}"
+        for i, jd in enumerate(job_descriptions)
+    ]
     return (
         f"There are {len(job_descriptions)} job descriptions below for the same kind of role. "
         f"Extract the role profile.\n\n" + "\n\n".join(parts)
@@ -49,7 +52,6 @@ def match_user(role_profile, resume_text, github_text):
     )
 
 
-
 RECOMMEND_SYSTEM = """You turn a candidate's evidence gaps into a concrete, ranked action plan to improve their real chances at the target role. Be specific and honest.
 
 Three buckets:
@@ -59,7 +61,7 @@ Three buckets:
 
 Hard rules:
 - Never recommend adding keywords the candidate can't back up. For a claim_without_evidence gap, recommend BUILDING or SHOWING evidence ("back this claim up"), not rewording.
-- Prioritize the highest-frequency missing/weak must-haves.
+- Prioritize 'missing' over 'weak' must-haves, and weight items the gate scores suggest matter most.
 
 Return ONLY JSON matching this schema:
 {"build": [{"project": str, "stack": [str], "closes_gap": str}], "github": [{"action": str, "closes_gap": str}], "learn": [{"skill": str, "score_impact": "high|medium|low"}]}"""
