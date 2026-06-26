@@ -87,6 +87,8 @@ def run(
     cache.mkdir(parents=True, exist_ok=True)
 
     resume = _load_resume(pdf_path)
+    if resume is None:
+        raise ValueError(f"Could not parse resume PDF: {pdf_path}")
     resume_text = _load_resume_text(resume)
     github_text = _load_github_text(resume)
     job_descriptions = [Path(p).read_text() for p in jd_paths]

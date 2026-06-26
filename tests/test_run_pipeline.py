@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import pytest
 import run_pipeline
 from match_models import (
     RoleProfile,
@@ -106,3 +107,16 @@ def test_cached_stage_is_reused(tmp_path, monkeypatch):
         pdf_path="r.pdf", jd_paths=[str(jd_file)], cache_dir=str(cache), model="m"
     )
     assert result["role_profile"]["title"] == "Cached Role"
+
+
+def test_run_raises_clear_error_when_pdf_unparseable(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_pipeline, "_load_resume", lambda pdf: None)
+    jd_file = tmp_path / "jd1.txt"
+    jd_file.write_text("role")
+    with pytest.raises(ValueError, match="Could not parse resume PDF"):
+        run_pipeline.run(
+            pdf_path="bad.pdf",
+            jd_paths=[str(jd_file)],
+            cache_dir=str(tmp_path / "cache"),
+            model="m",
+        )
