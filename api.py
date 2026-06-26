@@ -30,11 +30,12 @@ app = FastAPI(title="resume-booster", lifespan=lifespan)
 @app.post("/resumes")
 def upload_resume(file: UploadFile = File(...), session: Session = Depends(get_session)):
     UPLOAD_DIR.mkdir(exist_ok=True)
-    dest = UPLOAD_DIR / file.filename
+    safe_name = Path(file.filename).name
+    dest = UPLOAD_DIR / safe_name
     with dest.open("wb") as out:
         shutil.copyfileobj(file.file, out)
     try:
-        row = ingest_resume(file.filename, str(dest), session)
+        row = ingest_resume(safe_name, str(dest), session)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     return {"id": row.id, "filename": row.filename, "created_at": row.created_at.isoformat()}
