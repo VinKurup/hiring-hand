@@ -6,13 +6,25 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from db import get_session, init_db
-from db_models import Resume
+from db_models import Job, Resume
 from service import ingest_resume
 
 UPLOAD_DIR = Path("uploads")
+
+
+class JobCreate(BaseModel):
+    label: str
+    description: str
+
+
+class JobUpdate(BaseModel):
+    label: str | None = None
+    description: str | None = None
+    included: bool | None = None
 
 
 @asynccontextmanager
@@ -61,3 +73,53 @@ def get_resume(resume_id: int, session: Session = Depends(get_session)):
         "parsed": json.loads(row.parsed_json),
         "created_at": row.created_at.isoformat(),
     }
+
+
+# ---- jobs ----
+
+def _job_dict(job: Job) -> dict:
+    return {
+        "id": job.id,
+        "label": job.label,
+        "description": job.description,
+        "included": job.included,
+        "created_at": job.created_at.isoformat(),
+    }
+
+
+@app.post("/jobs")
+def create_job(payload: JobCreate, session: Session = Depends(get_session)):
+    job = Job(label=payload.label, description=payload.description)
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return _job_dict(job)
+
+
+@app.get("/jobs")
+def list_jobs(session: Session = Depends(get_session)):
+    return [_job_dict(j) for j in session.exec(select(Job)).all()]
+
+
+@app.patch("/jobs/{job_id}")
+def update_job(job_id: int, payload: JobUpdate, session: Session = Depends(get_session)):
+    job = session.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    data = payload.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(job, key, value)
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return _job_dict(job)
+
+
+@app.delete("/jobs/{job_id}")
+def delete_job(job_id: int, session: Session = Depends(get_session)):
+    job = session.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    session.delete(job)
+    session.commit()
+    return {"deleted": job_id}
